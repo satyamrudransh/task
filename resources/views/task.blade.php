@@ -10,7 +10,7 @@
                     </div>
                 @endif
 
-                <div id="enter-button-container">
+                <div id="enter-button-container" style="text-align: center;">
                     <button id="enter-button" class="btn btn-primary">Enter</button>
                 </div>
 
@@ -34,26 +34,28 @@
                         </div>
                     </div>
 
-                    <div class="card">
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Id</th>
-                                        <th>Task Name</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="task-list">
-                                    <!-- Existing tasks will be dynamically added here -->
-                                </tbody>
-                            </table>
+                    <button id="show-all-tasks" class="btn btn-secondary" style="margin-top: 10px;">Show All Tasks</button>
+                </div>
 
-                            @isset($tasks)
-                                {{ $tasks->links() }}
-                            @endisset
-                        </div>
+                <div class="card" id="task-list-container" style="display: none; margin-top: 10px;">
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Id</th>
+                                    <th>Task Name</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="task-list">
+                                <!-- Existing tasks will be dynamically added here -->
+                            </tbody>
+                        </table>
+
+                        @isset($tasks)
+                            {{ $tasks->links() }}
+                        @endisset
                     </div>
                 </div>
             </div>
@@ -99,6 +101,12 @@
             $('#enter-button').click(function() {
                 $('#enter-button-container').hide();
                 $('#task-container').show();
+                $('#task-list-container').hide();
+            });
+
+            $('#show-all-tasks').click(function() {
+                $('#task-container').show();
+                $('#task-list-container').show();
 
                 $.ajax({
                     url: '{{ route('tasks.index') }}',
@@ -193,7 +201,6 @@
                     data: form.serialize(),
                     success: function() {
                         let row = $(`#task-${taskId}`);
-                        row.find('td').eq(1).text(status === 'complete' ? row.find('td').eq(1).text() : row.find('td').eq(1).text());
                         row.find('td').eq(2).text(status === 'complete' ? 'Done' : 'Pending');
                         $('#updateModal').modal('hide');
                     }
@@ -218,7 +225,7 @@
             $(document).on('change', '.complete-task', function() {
                 var taskId = $(this).data('id');
                 var isChecked = $(this).is(':checked');
-                
+
                 $.ajax({
                     url: '{{ route('tasks.update', ':id') }}'.replace(':id', taskId),
                     method: 'POST',

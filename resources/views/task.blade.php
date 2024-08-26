@@ -67,7 +67,7 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="updateModalLabel">Update Task Status</h5>
+                    <h5 class="modal-title" id="updateModalLabel">Update Task</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="update-form">
@@ -76,16 +76,21 @@
                     <div class="modal-body">
                         <input type="hidden" id="task-id" name="task_id" />
                         <div class="form-group">
+                            <label for="update-title">Title</label>
+                            <input id="update-title" name="title" type="text" class="form-control" />
+                            <span class="invalid-feedback" id="update-title-error" role="alert" style="display: none;"></span>
+                        </div>
+                        <div class="form-group mt-2">
                             <label for="status">Status</label>
                             <select id="status" name="status" class="form-control">
-                                <option value="pending">Pending</option>
-                                <option value="complete">Done</option>
+                                <option value="pending">Non completed</option>
+                                <option value="complete">Completed</option>
                             </select>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Update Status</button>
+                        <button type="submit" class="btn btn-primary">Update Task</button>
                     </div>
                 </form>
             </div>
@@ -114,31 +119,24 @@
                     success: function(response) {
                         $('#task-list').empty();
                         response.tasks.forEach(function(task) {
-                            let statusText = task.is_complete ? task.title : task.title;
-                            let completeIcon = task.is_complete ? '' : `
-                                <button type="button" class="btn btn-link text-primary update-btn" data-id="${task.id}" data-title="${task.title}" data-status="${task.is_complete ? 'complete' : 'pending'}">
-                                    <i class="fas fa-pencil-alt"></i>
-                                </button>
-                            `;
+                            let statusText = task.is_complete ? 'Completed' : 'Non completed';
                             let taskRow = `
                                 <tr id="task-${task.id}">
                                     <td>${task.id}</td>
+                                    <td>${task.title}</td>
                                     <td>${statusText}</td>
-                                    <td>${task.is_complete ? 'Done' : 'Pending'}</td>
                                     <td class="text-right">
                                         <input type="checkbox" class="complete-task" data-id="${task.id}" ${task.is_complete ? 'checked disabled' : ''}>
-                                        ${completeIcon}
-                                        <form method="POST" action="{{ route('tasks.destroy', ':id') }}" class="delete-form d-inline" data-id="${task.id}">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-link text-danger">
-                                                <i class="fas fa-trash-alt"></i>
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-link text-primary update-btn" data-id="${task.id}" data-title="${task.title}" data-status="${task.is_complete ? 'complete' : 'pending'}">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-link text-danger delete-btn" data-id="${task.id}">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             `;
-                            $('#task-list').append(taskRow.replace(/:id/g, task.id));
+                            $('#task-list').append(taskRow);
                         });
                     }
                 });
@@ -146,34 +144,39 @@
 
             $('#new-task-form').submit(function(event) {
                 event.preventDefault();
+                $('#update-title-error').hide();
 
                 $.ajax({
                     url: $(this).attr('action'),
                     method: 'POST',
                     data: $(this).serialize(),
                     success: function(response) {
-                        let newTask = `
-                            <tr id="task-${response.id}">
-                                <td>${response.id}</td>
-                                <td>${response.title}</td>
-                                <td>Pending</td>
-                                <td class="text-right">
-                                    <input type="checkbox" class="complete-task" data-id="${response.id}">
-                                    <button type="button" class="btn btn-link text-primary update-btn" data-id="${response.id}" data-title="${response.title}" data-status="pending">
-                                        <i class="fas fa-pencil-alt"></i>
-                                    </button>
-                                    <form method="POST" action="{{ route('tasks.destroy', ':id') }}" class="delete-form d-inline" data-id="${response.id}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-link text-danger">
+                        let existingTask = $(`#task-${response.id}`);
+                        if (existingTask.length === 0) { // Ensure no duplicate tasks
+                            let newTask = `
+                                <tr id="task-${response.id}">
+                                    <td>${response.id}</td>
+                                    <td>${response.title}</td>
+                                    <td>Non completed</td>
+                                    <td class="text-right">
+                                        <input type="checkbox" class="complete-task" data-id="${response.id}">
+                                        <button type="button" class="btn btn-link text-primary update-btn" data-id="${response.id}" data-title="${response.title}" data-status="pending">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-link text-danger delete-btn" data-id="${response.id}">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        `;
-                        $('#task-list').append(newTask.replace(/:id/g, response.id));
+                                    </td>
+                                </tr>
+                            `;
+                            $('#task-list').append(newTask);
+                        }
                         $('#new-task-form')[0].reset();
+                    },
+                    error: function(xhr) {
+                        if (xhr.responseJSON.errors && xhr.responseJSON.errors.title) {
+                            alert(xhr.responseJSON.errors.title[0]); // Display error
+                        }
                     }
                 });
             });
@@ -184,47 +187,19 @@
                 var taskStatus = $(this).data('status');
 
                 $('#task-id').val(taskId);
+                $('#update-title').val(taskTitle);
                 $('#status').val(taskStatus);
                 $('#updateModal').modal('show');
             });
 
             $('#update-form').submit(function(event) {
                 event.preventDefault();
+                $('#update-title-error').hide(); // Hide previous error
 
                 var form = $(this);
                 var taskId = $('#task-id').val();
+                var title = $('#update-title').val();
                 var status = $('#status').val();
-
-                $.ajax({
-                    url: '{{ route('tasks.update', ':id') }}'.replace(':id', taskId),
-                    method: 'POST',
-                    data: form.serialize(),
-                    success: function() {
-                        let row = $(`#task-${taskId}`);
-                        row.find('td').eq(2).text(status === 'complete' ? 'Done' : 'Pending');
-                        $('#updateModal').modal('hide');
-                    }
-                });
-            });
-
-            $(document).on('submit', '.delete-form', function(event) {
-                event.preventDefault();
-                if (confirm('Are you sure you want to delete this task?')) {
-                    let form = $(this);
-                    $.ajax({
-                        url: form.attr('action').replace(':id', form.data('id')),
-                        method: 'DELETE',
-                        data: form.serialize(),
-                        success: function() {
-                            form.closest('tr').remove();
-                        }
-                    });
-                }
-            });
-
-            $(document).on('change', '.complete-task', function() {
-                var taskId = $(this).data('id');
-                var isChecked = $(this).is(':checked');
 
                 $.ajax({
                     url: '{{ route('tasks.update', ':id') }}'.replace(':id', taskId),
@@ -232,16 +207,89 @@
                     data: {
                         _token: '{{ csrf_token() }}',
                         _method: 'PUT',
-                        status: isChecked ? 'complete' : 'pending'
+                        title: title,
+                        status: status
                     },
-                    success: function() {
+                    success: function(response) {
                         let row = $(`#task-${taskId}`);
-                        row.find('td').eq(2).text(isChecked ? 'Done' : 'Pending');
-                        if (isChecked) {
-                            row.hide(); // Hide the row if the task is completed
+                        row.find('td').eq(1).text(response.title); // Update task name in the table
+                        row.find('td').eq(2).text(status === 'complete' ? 'Completed' : 'Non completed'); // Update status in the table
+                        
+                        // Update checkbox based on status
+                        const checkbox = row.find('.complete-task');
+                        if (status === 'complete') {
+                            checkbox.prop('checked', true);
+                            checkbox.prop('disabled', true);
+                        } else {
+                            checkbox.prop('checked', false);
+                            checkbox.prop('disabled', false);
+                        }
+
+                        $('#updateModal').modal('hide');
+                    },
+                    error: function(xhr) {
+                        if (xhr.responseJSON.errors && xhr.responseJSON.errors.title) {
+                            $('#update-title-error').text(xhr.responseJSON.errors.title[0]).show();
                         }
                     }
                 });
+            });
+
+            $(document).on('submit', '.delete-form', function(event) {
+                event.preventDefault();
+                var form = $(this);
+                var taskId = form.data('id');
+
+                $.ajax({
+                    url: form.attr('action').replace(':id', taskId),
+                    method: 'POST',
+                    data: form.serialize(),
+                    success: function(response) {
+                        $(`#task-${taskId}`).remove();
+                    }
+                });
+            });
+
+            $(document).on('change', '.complete-task', function() {
+                var checkbox = $(this);
+                var taskId = checkbox.data('id');
+                var isComplete = checkbox.is(':checked');
+
+                $.ajax({
+                    url: '{{ route('tasks.update', ':id') }}'.replace(':id', taskId),
+                    method: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        _method: 'PUT',
+                        status: isComplete ? 'complete' : 'pending'
+                    },
+                    success: function(response) {
+                        if (isComplete) {
+                            $(`#task-${taskId}`).remove();
+                        } else {
+                            checkbox.prop('checked', false);
+                            checkbox.prop('disabled', false);
+                        }
+                    }
+                });
+            });
+
+            $(document).on('click', '.delete-btn', function() {
+                var deleteBtn = $(this);
+                var taskId = deleteBtn.data('id');
+                
+                if (confirm('Are you sure to delete this task?')) {
+                    $.ajax({
+                        url: '{{ route('tasks.destroy', ':id') }}'.replace(':id', taskId),
+                        method: 'DELETE',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                        },
+                        success: function(response) {
+                            $(`#task-${taskId}`).remove();
+                        }
+                    });
+                }
             });
         });
     </script>

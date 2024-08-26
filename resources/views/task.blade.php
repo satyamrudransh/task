@@ -29,15 +29,22 @@
                                         </span>
                                     @endif
                                 </div>
-                                <button type="submit" class="btn btn-primary">Create</button>
+                                <button type="submit" class="btn btn-primary">Add Task</button>
                             </form>
                         </div>
                     </div>
 
                     <div class="card">
-                        <div class="card-header">Tasks</div>
                         <div class="card-body">
                             <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Id</th>
+                                        <th>Task Name</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
                                 <tbody id="task-list">
                                     <!-- Existing tasks will be dynamically added here -->
                                 </tbody>
@@ -53,8 +60,40 @@
         </div>
     </div>
 
-    <!-- Include jQuery -->
+    <!-- Update Modal -->
+    <div class="modal fade" id="updateModal" tabindex="-1" role="dialog" aria-labelledby="updateModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="updateModalLabel">Update Task Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="update-form">
+                    @csrf
+                    @method('PUT')
+                    <div class="modal-body">
+                        <input type="hidden" id="task-id" name="task_id" />
+                        <div class="form-group">
+                            <label for="status">Status</label>
+                            <select id="status" name="status" class="form-control">
+                                <option value="pending">Pending</option>
+                                <option value="complete">Done</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Update Status</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include jQuery, Bootstrap, and Font Awesome -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         $(document).ready(function() {
             $('#enter-button').click(function() {
@@ -67,20 +106,26 @@
                     success: function(response) {
                         $('#task-list').empty();
                         response.tasks.forEach(function(task) {
+                            let statusText = task.is_complete ? task.title : task.title;
+                            let completeIcon = task.is_complete ? '' : `
+                                <button type="button" class="btn btn-link text-primary update-btn" data-id="${task.id}" data-title="${task.title}" data-status="${task.is_complete ? 'complete' : 'pending'}">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            `;
                             let taskRow = `
                                 <tr id="task-${task.id}">
-                                    <td>${task.is_complete ? `<s>${task.title}</s>` : task.title}</td>
+                                    <td>${task.id}</td>
+                                    <td>${statusText}</td>
+                                    <td>${task.is_complete ? 'Done' : 'Pending'}</td>
                                     <td class="text-right">
-                                        ${task.is_complete ? '' : `
-                                            <form method="POST" action="{{ route('tasks.update', ':id') }}" class="complete-form" data-id="${task.id}">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="btn btn-primary">Complete</button>
-                                            </form>`}
-                                        <form method="POST" action="{{ route('tasks.destroy', ':id') }}" class="delete-form" data-id="${task.id}">
+                                        <input type="checkbox" class="complete-task" data-id="${task.id}" ${task.is_complete ? 'checked disabled' : ''}>
+                                        ${completeIcon}
+                                        <form method="POST" action="{{ route('tasks.destroy', ':id') }}" class="delete-form d-inline" data-id="${task.id}">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                            <button type="submit" class="btn btn-link text-danger">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
                                         </form>
                                     </td>
                                 </tr>
@@ -101,17 +146,20 @@
                     success: function(response) {
                         let newTask = `
                             <tr id="task-${response.id}">
+                                <td>${response.id}</td>
                                 <td>${response.title}</td>
+                                <td>Pending</td>
                                 <td class="text-right">
-                                    <form method="POST" action="{{ route('tasks.update', ':id') }}" class="complete-form" data-id="${response.id}">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button type="submit" class="btn btn-primary">Complete</button>
-                                    </form>
-                                    <form method="POST" action="{{ route('tasks.destroy', ':id') }}" class="delete-form" data-id="${response.id}">
+                                    <input type="checkbox" class="complete-task" data-id="${response.id}">
+                                    <button type="button" class="btn btn-link text-primary update-btn" data-id="${response.id}" data-title="${response.title}" data-status="pending">
+                                        <i class="fas fa-pencil-alt"></i>
+                                    </button>
+                                    <form method="POST" action="{{ route('tasks.destroy', ':id') }}" class="delete-form d-inline" data-id="${response.id}">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                        <button type="submit" class="btn btn-link text-danger">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
                                     </form>
                                 </td>
                             </tr>
@@ -122,16 +170,32 @@
                 });
             });
 
-            $(document).on('submit', '.complete-form', function(event) {
+            $(document).on('click', '.update-btn', function() {
+                var taskId = $(this).data('id');
+                var taskTitle = $(this).data('title');
+                var taskStatus = $(this).data('status');
+
+                $('#task-id').val(taskId);
+                $('#status').val(taskStatus);
+                $('#updateModal').modal('show');
+            });
+
+            $('#update-form').submit(function(event) {
                 event.preventDefault();
-                let form = $(this);
+
+                var form = $(this);
+                var taskId = $('#task-id').val();
+                var status = $('#status').val();
+
                 $.ajax({
-                    url: form.attr('action').replace(':id', form.data('id')),
+                    url: '{{ route('tasks.update', ':id') }}'.replace(':id', taskId),
                     method: 'POST',
                     data: form.serialize(),
                     success: function() {
-                        form.closest('tr').find('td').first().html(`<s>${form.closest('tr').find('td').first().text()}</s>`);
-                        form.remove();
+                        let row = $(`#task-${taskId}`);
+                        row.find('td').eq(1).text(status === 'complete' ? row.find('td').eq(1).text() : row.find('td').eq(1).text());
+                        row.find('td').eq(2).text(status === 'complete' ? 'Done' : 'Pending');
+                        $('#updateModal').modal('hide');
                     }
                 });
             });
@@ -142,13 +206,35 @@
                     let form = $(this);
                     $.ajax({
                         url: form.attr('action').replace(':id', form.data('id')),
-                        method: 'POST',
+                        method: 'DELETE',
                         data: form.serialize(),
                         success: function() {
                             form.closest('tr').remove();
                         }
                     });
                 }
+            });
+
+            $(document).on('change', '.complete-task', function() {
+                var taskId = $(this).data('id');
+                var isChecked = $(this).is(':checked');
+                
+                $.ajax({
+                    url: '{{ route('tasks.update', ':id') }}'.replace(':id', taskId),
+                    method: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        _method: 'PUT',
+                        status: isChecked ? 'complete' : 'pending'
+                    },
+                    success: function() {
+                        let row = $(`#task-${taskId}`);
+                        row.find('td').eq(2).text(isChecked ? 'Done' : 'Pending');
+                        if (isChecked) {
+                            row.hide(); // Hide the row if the task is completed
+                        }
+                    }
+                });
             });
         });
     </script>

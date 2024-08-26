@@ -4,20 +4,24 @@
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-8">
+                <!-- Display a success message if there's a 'status' in the session -->
                 @if (session('status'))
                     <div class="alert alert-success" role="alert">
                         {{ session('status') }}
                     </div>
                 @endif
 
+                <!-- Container for the 'Enter' button -->
                 <div id="enter-button-container" style="text-align: center;">
                     <button id="enter-button" class="btn btn-primary">Enter</button>
                 </div>
 
+                <!-- Container for the new task form and the 'Show All Tasks' button -->
                 <div id="task-container" style="display: none;">
                     <div class="card card-new-task">
                         <div class="card-header">New Task</div>
                         <div class="card-body">
+                            <!-- Form to create a new task -->
                             <form id="new-task-form" method="POST" action="{{ route('tasks.store') }}">
                                 @csrf
                                 <div class="form-group">
@@ -34,9 +38,11 @@
                         </div>
                     </div>
 
+                    <!-- Button to show all tasks -->
                     <button id="show-all-tasks" class="btn btn-secondary" style="margin-top: 10px;">Show All Tasks</button>
                 </div>
 
+                <!-- Container for displaying the list of tasks -->
                 <div class="card" id="task-list-container" style="display: none; margin-top: 10px;">
                     <div class="card-body">
                         <table class="table table-striped">
@@ -53,6 +59,7 @@
                             </tbody>
                         </table>
 
+                        <!-- Pagination links for tasks, if available -->
                         @isset($tasks)
                             {{ $tasks->links() }}
                         @endisset
@@ -70,6 +77,7 @@
                     <h5 class="modal-title" id="updateModalLabel">Update Task</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
+                <!-- Form to update a task -->
                 <form id="update-form">
                     @csrf
                     @method('PUT')
@@ -103,12 +111,14 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         $(document).ready(function() {
+            // Handle 'Enter' button click: Show the task form and hide the task list
             $('#enter-button').click(function() {
                 $('#enter-button-container').hide();
                 $('#task-container').show();
                 $('#task-list-container').hide();
             });
 
+            // Handle 'Show All Tasks' button click: Show the task list and fetch tasks via AJAX
             $('#show-all-tasks').click(function() {
                 $('#task-container').show();
                 $('#task-list-container').show();
@@ -117,7 +127,7 @@
                     url: '{{ route('tasks.index') }}',
                     method: 'GET',
                     success: function(response) {
-                        $('#task-list').empty();
+                        $('#task-list').empty(); // Clear existing tasks
                         response.tasks.forEach(function(task) {
                             let statusText = task.is_complete ? 'Completed' : 'Non completed';
                             let taskRow = `
@@ -142,6 +152,7 @@
                 });
             });
 
+            // Handle new task form submission via AJAX
             $('#new-task-form').submit(function(event) {
                 event.preventDefault();
                 $('#update-title-error').hide();
@@ -171,16 +182,17 @@
                             `;
                             $('#task-list').append(newTask);
                         }
-                        $('#new-task-form')[0].reset();
+                        $('#new-task-form')[0].reset(); // Reset the form after successful submission
                     },
                     error: function(xhr) {
                         if (xhr.responseJSON.errors && xhr.responseJSON.errors.title) {
-                            alert(xhr.responseJSON.errors.title[0]); // Display error
+                            alert(xhr.responseJSON.errors.title[0]); // Display error if any
                         }
                     }
                 });
             });
 
+            // Handle 'Update Task' button click: Populate and show the update modal
             $(document).on('click', '.update-btn', function() {
                 var taskId = $(this).data('id');
                 var taskTitle = $(this).data('title');
@@ -192,9 +204,10 @@
                 $('#updateModal').modal('show');
             });
 
+            // Handle update form submission via AJAX
             $('#update-form').submit(function(event) {
                 event.preventDefault();
-                $('#update-title-error').hide(); // Hide previous error
+                $('#update-title-error').hide();
 
                 var form = $(this);
                 var taskId = $('#task-id').val();
@@ -212,7 +225,7 @@
                     },
                     success: function(response) {
                         let row = $(`#task-${taskId}`);
-                        row.find('td').eq(1).text(response.title); // Update task name in the table
+                        row.find('td').eq(1).text(response.title); // Update task title in the table
                         row.find('td').eq(2).text(status === 'complete' ? 'Completed' : 'Non completed'); // Update status in the table
                         
                         // Update checkbox based on status
@@ -225,16 +238,17 @@
                             checkbox.prop('disabled', false);
                         }
 
-                        $('#updateModal').modal('hide');
+                        $('#updateModal').modal('hide'); // Hide the update modal after success
                     },
                     error: function(xhr) {
                         if (xhr.responseJSON.errors && xhr.responseJSON.errors.title) {
-                            $('#update-title-error').text(xhr.responseJSON.errors.title[0]).show();
+                            $('#update-title-error').text(xhr.responseJSON.errors.title[0]).show(); // Show validation error
                         }
                     }
                 });
             });
 
+            // Handle task deletion (if any 'delete-form' is used, though it's not shown in the code)
             $(document).on('submit', '.delete-form', function(event) {
                 event.preventDefault();
                 var form = $(this);
@@ -245,11 +259,12 @@
                     method: 'POST',
                     data: form.serialize(),
                     success: function(response) {
-                        $(`#task-${taskId}`).remove();
+                        $(`#task-${taskId}`).remove(); // Remove task row from the table
                     }
                 });
             });
 
+            // Handle task completion (checkbox change event)
             $(document).on('change', '.complete-task', function() {
                 var checkbox = $(this);
                 var taskId = checkbox.data('id');
@@ -265,7 +280,7 @@
                     },
                     success: function(response) {
                         if (isComplete) {
-                            $(`#task-${taskId}`).remove();
+                            $(`#task-${taskId}`).remove(); // Remove completed task row
                         } else {
                             checkbox.prop('checked', false);
                             checkbox.prop('disabled', false);
@@ -274,6 +289,7 @@
                 });
             });
 
+            // Handle task deletion via button click
             $(document).on('click', '.delete-btn', function() {
                 var deleteBtn = $(this);
                 var taskId = deleteBtn.data('id');
@@ -286,7 +302,7 @@
                             _token: '{{ csrf_token() }}',
                         },
                         success: function(response) {
-                            $(`#task-${taskId}`).remove();
+                            $(`#task-${taskId}`).remove(); // Remove task row from the table
                         }
                     });
                 }

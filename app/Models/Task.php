@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Task extends Model
 {
     use SoftDeletes;
+    use HasFactory; // This trait enables the use of the factory
 
     protected $table='task';
     protected $primaryKey = 'id';
@@ -16,7 +17,7 @@ class Task extends Model
     protected $date = ['deleted_at'];
 
     protected $fillable = [
-        'title','description','status','is_complete'
+        'title','is_complete'
     ];
     
 }
